@@ -1,0 +1,67 @@
+classdef TrackmateXML
+    %TRACKMATEXML Read and analyse TrackmateXML files
+    %   Reads the XMl file using readtable. Faster than readxml and going over the whole tree.
+    properties
+        pth
+        spots
+        tracks
+        filteredtracks
+    end
+
+    methods
+        function obj = TrackmateXML(pth_in)
+            %TRACKMATEXML Construct an instance of this class
+            %   Detailed explanation goes here
+            obj.pth = pth_in;
+            obj.spots = readtable(pth_in, 'VariableSelectors', { ...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@ID', ...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@POSITION_T', ...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@POSITION_X' , ...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@POSITION_Y', ...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@MEAN_INTENSITY'});
+            tracklengths = readtable(pth_in,'VariableSelectors',{ ...
+                '/TrackMate/Model/AllTracks/Track/@NUMBER_SPOTS', ...
+                '/TrackMate/Model/AllTracks/Track/@name'});
+            alledges = readtable(pth_in,'VariableSelectors',{ ...
+                '/TrackMate/Model/AllTracks/Track/Edge/@SPOT_SOURCE_ID', ...
+                '/TrackMate/Model/AllTracks/Track/Edge/@SPOT_TARGET_ID'});
+            ntracks = height(tracklengths);
+            obj.tracks = cell(ntracks,2);
+            i=1;
+            for ct = 1:ntracks
+                tl = tracklengths.NUMBER_SPOTSAttribute(ct)-1;
+                obj.tracks{ct,1}=tracklengths.nameAttribute(ct);
+                obj.tracks{ct,2}=alledges(i:(i+tl-1),:);
+                i=i+tl;
+            end
+            obj.filteredtracks = readtable(pth_in, 'VariableSelectors', '/TrackMate/Model/FilteredTracks/TrackID/@TRACK_ID');
+        end
+        function [start, finish, splits, merges] = analyse_track(obj, trackID)
+            if isnumeric(trackID)
+                track = obj.tracks{trackID,2};
+                sources = track.SPOT_SOURCE_IDAttribute;
+                targets = track.SPOT_TARGET_IDAttribute;
+                start = setdiff(sources, targets);
+                finish = setdiff(targets,sources);
+                [uniquevals, ~, ia] = unique(sources, 'stable');  
+                bincounts = accumarray(ia, 1);
+                splits = uniquevals(ia(bincounts>1));
+                [uniquevals, ~, ia] = unique(targets, 'stable');  
+                bincounts = accumarray(ia, 1);
+                merges = uniquevals(ia(bincounts>1));
+            else
+                trackID = find(cellfun(@(c) strcmp(c,trackID), obj.tracks(:,1)));
+                [start, finish, splits, merges] = obj.analyse_track(trackID);
+            end
+        end
+        function spot = getspot(obj, spotID)
+            spot = obj.spots(find(obj.spots.IDAttribute==spotID),:);
+        end
+        function [x,y] = getspotXY(obj, spotID)
+            spot = obj.getspot(spotID);
+            x = spot.POSITION_XAttribute;
+            y = spot.POSITION_YAttribute;
+        end
+    end
+end
+
