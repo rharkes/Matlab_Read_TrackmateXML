@@ -1,5 +1,5 @@
 # Matlab_Read_TrackmateXML
-Read TrackmateXML files in Matlab
+Read TrackmateXML files in Matlab using [`readtable`](https://nl.mathworks.com/help/matlab/ref/readtable.html) introduced in [Matlab R2021a](https://nl.mathworks.com/help/matlab/release-notes.html?rntext=&startrelease=R2021a&endrelease=R2021a).
 
 # Examples
 ## Read a TrackmateXML
