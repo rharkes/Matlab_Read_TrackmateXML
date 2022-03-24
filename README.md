@@ -12,3 +12,15 @@ Reading takes 4 seconds for a 27.3MB TrackmateXML file with 112 tracks, 14055 ed
 [start,finish,split,merge] = txml.analyse_track('Track_5')
 [x,y] = txml.getspotXY(start)
 ```
+## Plot the intensity trace for track 1
+```
+track1 = tmx.getTrack(1, false);  % don't duplicate the track before a split
+clf
+hold on
+for i = 1:length(track1)
+    I = tmx.getColumn(track1{i}, 'MEAN_INTENSITY_1');
+    f = tmx.getColumn(track1{i}, 'FRAME');
+    plot(f,I,'.-')
+end
+hold off
+```
