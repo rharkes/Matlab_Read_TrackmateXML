@@ -54,7 +54,10 @@ classdef TrackmateXML
                 i=i+tl;
             end
         end
-        function [spotIDs] = getTrack(obj, trackID, duplicate_split)
+        function [spotIDs] = getTrack(obj, trackID, duplicate_split, break_split)
+            if nargin==3
+                break_split=false;
+            end
             if nargin==2
                 duplicate_split=true;
             end
@@ -67,7 +70,14 @@ classdef TrackmateXML
                 trackL = [0];
                 while ~all(trackL == cellfun(@(x) length(x), spotIDs))
                     trackL = cellfun(@(x) length(x), spotIDs);
-                    spotIDs = obj.traceTrack(sources, targets, spotIDs, duplicate_split);
+                    spotIDs = obj.traceTrack(sources, targets, spotIDs, duplicate_split, break_split);
+                end
+                for i = 1:length(spotIDs)
+                    sid = spotIDs{i};
+                    if sid(end)==-1
+                        sid(end)=[];
+                    end
+                    spotIDs{i}=sid;
                 end
             else
                 trackID = find(cellfun(@(c) strcmp(c,trackID), obj.tracks(:,1)));
@@ -76,7 +86,7 @@ classdef TrackmateXML
                     spotIDs=[];
                     return
                 end
-                [spotIDs] = getTrack(obj, trackID, duplicate_split);
+                [spotIDs] = getTrack(obj, trackID, duplicate_split, break_split);
             end
         end
         function [I] = getColumn(obj, spotIDs, colname)
@@ -122,7 +132,7 @@ classdef TrackmateXML
         end
     end
     methods(Static)
-        function [spotIDs] = traceTrack(sources, targets, spotIDs, duplicate_split)
+        function [spotIDs] = traceTrack(sources, targets, spotIDs, duplicate_split, break_split)
             for i = 1:length(spotIDs)
                 sid = spotIDs{i};
                 target = targets(sources==sid(end));
@@ -138,7 +148,12 @@ classdef TrackmateXML
                             spotIDs{end+1} = [target(j)];
                         end
                     end
-                    sid(end+1) = target(1);
+                    if break_split
+                        spotIDs{end+1} = target(1);
+                        sid(end+1) = -1;
+                    else
+                        sid(end+1) = target(1);
+                    end
                 end
                 spotIDs{i} = sid;
             end
