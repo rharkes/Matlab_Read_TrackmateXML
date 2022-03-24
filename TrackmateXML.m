@@ -58,15 +58,25 @@ classdef TrackmateXML
             if nargin==2
                 duplicate_split=true;
             end
-            track = obj.tracks{trackID,2};
-            sources = track.SOURCE_ID;
-            targets = track.TARGET_ID;
-            start = setdiff(sources, targets);
-            spotIDs{1} = [start];
-            trackL = [0];
-            while ~all(trackL == cellfun(@(x) length(x), spotIDs))
-                trackL = cellfun(@(x) length(x), spotIDs);
-                spotIDs = obj.traceTrack(sources, targets, spotIDs, duplicate_split);
+            if isnumeric(trackID)
+                track = obj.tracks{trackID,2};
+                sources = track.SOURCE_ID;
+                targets = track.TARGET_ID;
+                start = setdiff(sources, targets);
+                spotIDs{1} = [start];
+                trackL = [0];
+                while ~all(trackL == cellfun(@(x) length(x), spotIDs))
+                    trackL = cellfun(@(x) length(x), spotIDs);
+                    spotIDs = obj.traceTrack(sources, targets, spotIDs, duplicate_split);
+                end
+            else
+                trackID = find(cellfun(@(c) strcmp(c,trackID), obj.tracks(:,1)));
+                if isempty(trackID)
+                    disp("Track not found")
+                    spotIDs=[];
+                    return
+                end
+                [spotIDs] = getTrack(obj, trackID, duplicate_split);
             end
         end
         function [I] = getColumn(obj, spotIDs, colname)
@@ -91,6 +101,11 @@ classdef TrackmateXML
                 merges = uniquevals(ia(bincounts>1));
             else
                 trackID = find(cellfun(@(c) strcmp(c,trackID), obj.tracks(:,1)));
+                if isempty(trackID)
+                    disp("Track not found")
+                    start=[];finish=[];splits=[];merges=[];
+                    return
+                end
                 [start, finish, splits, merges] = obj.analyse_track(trackID);
             end
         end
