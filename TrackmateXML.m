@@ -12,15 +12,21 @@ classdef TrackmateXML
         function obj = TrackmateXML(pth_in)
             %TRACKMATEXML Construct an instance of this class
             %   Detailed explanation goes here
+            if nargin<1
+                pth_in = 'C:\GitLabReps\pip-fucci-main\example\MAX_200506_TTFields Wee1 Inh U251 AZD1775.xml';
+            end
             obj.pth = pth_in;
-            spotopts = xmlImportOptions('VariableNames',{'ID','POSITION_T','POSITION_X', 'POSITION_Y', 'MEAN_INTENSITY'},...
-                'VariableTypes', {'int32', 'int32', 'double', 'double', 'double'},...
+            spotopts = xmlImportOptions('VariableNames',{'ID','FRAME','POSITION_X', 'POSITION_Y', 'MEAN_INTENSITY_1', 'MEAN_INTENSITY_2', 'MEAN_INTENSITY_3', 'ESTIMATED_DIAMETER'},...
+                'VariableTypes', {'int32', 'int32', 'double', 'double', 'double', 'double', 'double', 'double'},...
                 'VariableSelectors',{ ...
                 '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@ID', ...
-                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@POSITION_T', ...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@FRAME', ...
                 '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@POSITION_X' , ...
                 '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@POSITION_Y', ...
-                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@MEAN_INTENSITY'});
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@MEAN_INTENSITY01',...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@MEAN_INTENSITY02',...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@MEAN_INTENSITY03',...
+                '/TrackMate/Model/AllSpots/SpotsInFrame/Spot/@ESTIMATED_DIAMETER'});
             trackopts = xmlImportOptions('VariableNames',{'NUMBER_SPOTS','NAME'},...
                 'VariableTypes', {'int32','char'},...
                 'VariableSelectors',{ ...
@@ -48,6 +54,28 @@ classdef TrackmateXML
                 i=i+tl;
             end
         end
+        function [spotIDs] = getTrack(obj, trackID, duplicate_split)
+            if nargin==2
+                duplicate_split=true;
+            end
+            track = obj.tracks{trackID,2};
+            sources = track.SOURCE_ID;
+            targets = track.TARGET_ID;
+            start = setdiff(sources, targets);
+            spotIDs{1} = [start];
+            trackL = [0];
+            while ~all(trackL == cellfun(@(x) length(x), spotIDs))
+                trackL = cellfun(@(x) length(x), spotIDs);
+                spotIDs = obj.traceTrack(sources, targets, spotIDs, duplicate_split);
+            end
+        end
+        function [I] = getColumn(obj, spotIDs, colname)
+            allI = obj.spots{:,colname};
+            I = zeros(length(spotIDs),1);
+            for i = 1:length(spotIDs)
+                I(i) = allI(obj.spots.ID==spotIDs(i));
+            end
+        end
         function [start, finish, splits, merges] = analyse_track(obj, trackID)
             if isnumeric(trackID)
                 track = obj.tracks{trackID,2};
@@ -55,10 +83,10 @@ classdef TrackmateXML
                 targets = track.TARGET_ID;
                 start = setdiff(sources, targets);
                 finish = setdiff(targets,sources);
-                [uniquevals, ~, ia] = unique(sources, 'stable');  
+                [uniquevals, ~, ia] = unique(sources, 'stable');
                 bincounts = accumarray(ia, 1);
                 splits = uniquevals(ia(bincounts>1));
-                [uniquevals, ~, ia] = unique(targets, 'stable');  
+                [uniquevals, ~, ia] = unique(targets, 'stable');
                 bincounts = accumarray(ia, 1);
                 merges = uniquevals(ia(bincounts>1));
             else
@@ -78,5 +106,27 @@ classdef TrackmateXML
             nEdges=sum(cellfun(@(x) size(x,1),obj.tracks(:,2)));
         end
     end
+    methods(Static)
+        function [spotIDs] = traceTrack(sources, targets, spotIDs, duplicate_split)
+            for i = 1:length(spotIDs)
+                sid = spotIDs{i};
+                target = targets(sources==sid(end));
+                if isempty(target)
+                    continue
+                elseif length(target)==1
+                    sid(end+1) = target;
+                else
+                    for j = 2:length(target)
+                        if duplicate_split
+                            spotIDs{end+1} = [sid, target(j)];
+                        else
+                            spotIDs{end+1} = [target(j)];
+                        end
+                    end
+                    sid(end+1) = target(1);
+                end
+                spotIDs{i} = sid;
+            end
+        end
+    end
 end
-
