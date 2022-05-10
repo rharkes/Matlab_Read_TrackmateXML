@@ -4,9 +4,10 @@ Read TrackmateXML files in Matlab using [`readtable`](https://nl.mathworks.com/h
 # Examples
 ## Read a TrackmateXML
 ```
-txml = TrackmateXML(pth)
+txml = get_trackmateXML(pth)
 ```
 Reading takes 4 seconds for a 27.3MB TrackmateXML file with 112 tracks, 14055 edges and 40253 spots.
+After reading the txml is automatically saved as a `.mat` file with the same name. Subsequent reads will use this file and be much faster.
 ## Find the start location for track 5
 ```
 [start,finish,split,merge] = txml.analyse_track('Track_5')

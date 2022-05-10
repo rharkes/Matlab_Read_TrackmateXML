@@ -6,6 +6,12 @@ classdef TrackmateXML
         spots
         tracks
         filteredtracks
+        features
+        MD5
+    end
+
+    properties(Hidden)
+        log
     end
 
     methods
@@ -13,9 +19,15 @@ classdef TrackmateXML
             %TRACKMATEXML Construct an instance of this class
             %   Detailed explanation goes here
             if nargin<1
-                pth_in = 'C:\GitLabReps\pip-fucci-main\example\MAX_200506_TTFields Wee1 Inh U251 AZD1775.xml';
+                disp('TrackmateXML(pth_in)')
+                return
             end
             obj.pth = pth_in;
+            obj.MD5 = obj.getMD5(pth_in);
+            % read information
+            obj.log = readstruct(pth_in, 'StructNodeName','Log').Text;
+            % read the spotfeatures
+            obj.features = readstruct(pth_in,"StructNodeName","FeatureDeclarations");
             spotopts = xmlImportOptions('VariableNames',{'ID','FRAME','POSITION_X', 'POSITION_Y', 'MEAN_INTENSITY_1', 'MEAN_INTENSITY_2', 'MEAN_INTENSITY_3', 'ESTIMATED_DIAMETER'},...
                 'VariableTypes', {'int32', 'int32', 'double', 'double', 'double', 'double', 'double', 'double'},...
                 'VariableSelectors',{ ...
@@ -53,6 +65,9 @@ classdef TrackmateXML
                 obj.tracks{ct,2}=alledges(i:(i+tl-1),:);
                 i=i+tl;
             end
+        end
+        function print(obj)
+            disp(obj.log)
         end
         function [spotIDs] = getTrack(obj, trackID, duplicate_split, break_split)
             if nargin==3
@@ -132,6 +147,19 @@ classdef TrackmateXML
         end
     end
     methods(Static)
+        function hash = getMD5(pth_in)
+            mddigest   = java.security.MessageDigest.getInstance('MD5');
+            bufsize = 8192;
+            fid = fopen(pth_in);
+            while ~feof(fid)
+                [currData,len] = fread(fid, bufsize, '*uint8');
+                if ~isempty(currData)
+                    mddigest.update(currData, 0, len);
+                end
+            end
+            fclose(fid);
+            hash = reshape(dec2hex(typecast(mddigest.digest(),'uint8'))',1,[]);
+        end
         function [spotIDs] = traceTrack(sources, targets, spotIDs, duplicate_split, break_split)
             for i = 1:length(spotIDs)
                 sid = spotIDs{i};
@@ -160,3 +188,4 @@ classdef TrackmateXML
         end
     end
 end
+
