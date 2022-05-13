@@ -1,6 +1,7 @@
 classdef TrackmateXML
-    %TRACKMATEXML Summary of this class goes here
-    %   Detailed explanation goes here
+    %TRACKMATEXML Contains data of a trackmate xml-file
+    %   Loads the .xml file and contains methods for handeling
+    %   tracking data.
     properties
         pth
         spots
@@ -26,8 +27,8 @@ classdef TrackmateXML
             obj.MD5 = obj.getMD5(pth_in);
             % read information
             obj.log = readstruct(pth_in, 'StructNodeName','Log').Text;
-            % read the spotfeatures
-            obj.features = readstruct(pth_in,"StructNodeName","FeatureDeclarations");
+            % read the spotfeatures (not used)
+            %obj.features = readstruct(pth_in,"StructNodeName","FeatureDeclarations");
             spotopts = xmlImportOptions('VariableNames',{'ID','FRAME','POSITION_X', 'POSITION_Y', 'MEAN_INTENSITY_1', 'MEAN_INTENSITY_2', 'MEAN_INTENSITY_3', 'ESTIMATED_DIAMETER'},...
                 'VariableTypes', {'int32', 'int32', 'double', 'double', 'double', 'double', 'double', 'double'},...
                 'VariableSelectors',{ ...
@@ -81,11 +82,15 @@ classdef TrackmateXML
                 sources = track.SOURCE_ID;
                 targets = track.TARGET_ID;
                 start = setdiff(sources, targets);
-                spotIDs{1} = [start];
+                spotIDs{1,1} = [start];
+                spotIDs{1,2} = 0; % no parent
                 trackL = [0];
-                while ~all(trackL == cellfun(@(x) length(x), spotIDs))
-                    trackL = cellfun(@(x) length(x), spotIDs);
+                while ~all(trackL == cellfun(@(x) length(x), spotIDs(:,1)))  % if trackTrack changed something, continue tracing
+                    trackL = cellfun(@(x) length(x), spotIDs(:,1));
                     spotIDs = obj.traceTrack(sources, targets, spotIDs, duplicate_split, break_split);
+                    if length(trackL)~=length(spotIDs(:,1))  % new tracks, so something has changed
+                        trackL = zeros(1, length(spotIDs(:,1)));
+                    end
                 end
                 for i = 1:length(spotIDs)
                     sid = spotIDs{i};
@@ -161,29 +166,32 @@ classdef TrackmateXML
             hash = reshape(dec2hex(typecast(mddigest.digest(),'uint8'))',1,[]);
         end
         function [spotIDs] = traceTrack(sources, targets, spotIDs, duplicate_split, break_split)
-            for i = 1:length(spotIDs)
-                sid = spotIDs{i};
+            for i = 1:size(spotIDs,1)
+                sid = spotIDs{i,1};
                 target = targets(sources==sid(end));
                 if isempty(target)
                     continue
-                elseif length(target)==1
+                elseif length(target)==1  % one target, continue
                     sid(end+1) = target;
-                else
+                else % >1 target, split
                     for j = 2:length(target)
                         if duplicate_split
-                            spotIDs{end+1} = [sid, target(j)];
+                            spotIDs{end+1,1} = [sid, target(j)];
+                            spotIDs{end,2} = i;
                         else
-                            spotIDs{end+1} = [target(j)];
+                            spotIDs{end+1,1} = [target(j)];
+                            spotIDs{end,2} = i;
                         end
                     end
                     if break_split
-                        spotIDs{end+1} = target(1);
-                        sid(end+1) = -1;
+                        spotIDs{end+1,1} = target(1); % create new track
+                        spotIDs{end,2} = i; % parent is i
+                        sid(end+1) = -1; % close old
                     else
-                        sid(end+1) = target(1);
+                        sid(end+1) = target(1); % continue track
                     end
                 end
-                spotIDs{i} = sid;
+                spotIDs{i,1} = sid;
             end
         end
     end
